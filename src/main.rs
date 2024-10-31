@@ -1,6 +1,5 @@
 use master_render_3d::{ansi::{ANSIRenderer, ANSIStyle}, render_math::{matrix::Mat4, vector::{Mesh, Vector3, Vector2i}}};
 
-
 fn main() {
     let mut renderer = ANSIRenderer::new();
 
@@ -48,6 +47,9 @@ fn main() {
 
     heart.set_scale_matrix(scale_matrix);
     heart.set_translation_matrix(translation_matrix);
+
+    // LoveYou image
+    let image = image_helper::image::read_image_from_file("LoveYou.png").expect("Tech demo segment.");
 
     let mut scale_factor = 1.0;
     let start_time = std::time::Instant::now();
@@ -101,6 +103,7 @@ fn main() {
 
         let roskosmos = std::time::Instant::now();
         renderer.rasterize_vertices(&heart, 3.0);
+        renderer.draw_image_2d(&image, Vector2i::new(28 + heart_offset_x as i32 + 2, 10), 3.0);
         renderer.draw_at(Vector2i::new(0, 0), &actual_delta.to_string(), 0.0, Some(ANSIStyle::Underline));
         renderer.set_style(ANSIStyle::None);
         _ = renderer.flush();

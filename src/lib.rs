@@ -7,20 +7,20 @@ pub mod render_math {
             fn magnitude(&self) -> f64;
         }
 
-        #[derive(Debug, Copy)]
+        #[derive(Debug, Copy, Clone)]
         pub struct Vector2i {
             x: i32,
             y: i32,
         }
 
-        #[derive(Debug, Copy)]
+        #[derive(Debug, Copy, Clone)]
         pub struct Vector3 {
             x: f64,
             y: f64,
             z: f64,
         }
 
-        #[derive(Debug, Copy)]
+        #[derive(Debug, Copy, Clone)]
         pub struct Vector4 {
             x: f64,
             y: f64,
@@ -80,15 +80,6 @@ pub mod render_math {
                 Vector2i {
                     x: self.x - rhs.x,
                     y: self.y - rhs.y
-                }
-            }
-        }
-
-        impl Clone for Vector2i {
-            fn clone(&self) -> Self {
-                Vector2i {
-                    x: self.x,
-                    y: self.y
                 }
             }
         }
@@ -178,16 +169,6 @@ pub mod render_math {
                 }
             }
         }
-
-        impl Clone for Vector3 {
-            fn clone(&self) -> Self {
-                Vector3 {
-                    x: self.x,
-                    y: self.y,
-                    z: self.z,
-                }
-            }
-        }
         
         impl Vector4 {
             pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
@@ -270,17 +251,6 @@ pub mod render_math {
                     y: self.y * rhs.y,
                     z: self.z * rhs.z,
                     w: self.w * rhs.w
-                }
-            }
-        }
-
-        impl Clone for Vector4 {
-            fn clone(&self) -> Self {
-                Vector4 {
-                    x: self.x,
-                    y: self.y,
-                    z: self.z,
-                    w: self.w,
                 }
             }
         }
@@ -529,6 +499,7 @@ pub mod ansi {
     use std::{error::Error, string::FromUtf8Error};
 
     use crate::render_math::vector::*;
+    use image_helper::image::*;
 
     pub struct ANSIRenderer {
         helper: ANSIHelper,
@@ -629,6 +600,18 @@ pub mod ansi {
 
         pub fn draw_bitmap(&mut self) {
 
+        }
+
+        pub fn draw_image_2d(&mut self, image: &ImageData, position: Vector2i, z: f64) {
+            for y in 0..image.height() {
+                for x in 0..image.width() {
+                    let pixel = image.get_pixel_at(x, y);
+
+                    if pixel.r() != 0 {
+                        self.draw_at(position + Vector2i::new(x as i32, y as i32), "&", z, None);
+                    }
+                }
+            }
         }
 
         pub fn rasterize_vertices(&mut self, mesh: &Mesh, max_distance: f64) {

@@ -7,3 +7,4 @@ edition = "2021"
 linker = "C:/cygwin64/bin/gcc.exe"
 
 [dependencies]
+image_helper = { path = "image_helper" }
