@@ -101,14 +101,14 @@ fn main() {
             (total_millis / 3800.0).sin() * 0.2));
         heart.set_rotation_matrix(rotation_matrix);
 
-        let roskosmos = std::time::Instant::now();
-        renderer.rasterize_vertices(&heart, 3.0);
-        renderer.draw_image_2d(&image, Vector2i::new(28 + heart_offset_x as i32 + 2, 10), 3.0);
-        renderer.draw_at(Vector2i::new(0, 0), &actual_delta.to_string(), 0.0, Some(ANSIStyle::Underline));
+        let render_start = std::time::Instant::now();
+        _ = renderer.rasterize_vertices(&heart, 3.0);
+        _ = renderer.draw_image_2d(&image, Vector2i::new(28 + heart_offset_x as i32 + 2, 10), 3.0);
+        _ = renderer.draw_at(0, 0, &actual_delta.to_string(), 0.0, Some(ANSIStyle::Underline));
         renderer.set_style(ANSIStyle::None);
         _ = renderer.flush();
         
-        renderer.draw_at(Vector2i::new(0, 2), &(std::time::Instant::now() - roskosmos).as_nanos().to_string(), 0.0, None);
+        _ = renderer.draw_at(1, 2, &(std::time::Instant::now() - render_start).as_nanos().to_string(), 0.0, None); // absolute 0 after rendering refactor of 31.10.2024? Suspicious...
 
         time = std::time::Instant::now();
     }

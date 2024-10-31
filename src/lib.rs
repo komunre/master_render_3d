@@ -475,11 +475,29 @@ pub mod render {
         pub fn set_pixel(&mut self, x: u32, y: u32, pixel: T) -> Result<(), &'static str> {
             let i: usize = match (y * self.width + x).try_into() {
                 Ok(v) => v,
-                Err(_) => return Err("Desired pixel is outside of image pixel range.")
+                Err(_) => return Err("Desired pixel index does not fit into usize.")
             };
             if let Some(px) = self.pixels.get_mut(i) {
                 *px = pixel;
             }
+            else {
+                return Err("Index out of bounds.");
+            }
+            Ok(())
+        }
+
+        pub fn push_pixels(&mut self, x: u32, y: u32, pixels: Vec<T>) -> Result<(), &'static str> {
+            let i: usize = match (y * self.width + x).try_into() {
+                Ok(v) => v,
+                Err(_) => return Err("Desired pixel index does not fit into usize.")
+            };
+            
+            for pixel in pixels {
+                if let Some(px) = self.pixels.get_mut(i) {
+                    *px = pixel;
+                }
+            }
+
             Ok(())
         }
 
@@ -491,23 +509,27 @@ pub mod render {
             self.pixels.get(i) 
         }
 
+        pub fn get_buffer(&self) -> &Vec<T> {
+            &self.pixels
+        }
+
     }
 
 }
 
 pub mod ansi {
-    use std::{error::Error, string::FromUtf8Error};
+    use std::{collections::HashMap, error::Error, string::FromUtf8Error};
 
-    use crate::render_math::vector::*;
+    use crate::{render::Screen, render_math::vector::*};
     use image_helper::image::*;
 
     pub struct ANSIRenderer {
         helper: ANSIHelper,
 
-        currently_set_pixels: Vec<(i32, i32)>,
-        previously_set_pixels: Vec<(i32, i32)>,
+        currently_set_pixels: Vec<(u32, u32)>,
+        previously_set_pixels: Vec<(u32, u32)>,
 
-        z_buffer: Vec<(Vector2i, f64)>,
+        z_buffer: Vec<((u32, u32), f64)>,
     }
 
     impl ANSIRenderer {
@@ -526,35 +548,37 @@ pub mod ansi {
             &mut self.helper
         }
 
-        pub fn draw_at(&mut self, pos: Vector2i, s: &str, z: f64, style: Option<ANSIStyle>) {
+        pub fn draw_at(&mut self, x: u32, y: u32, s: &str, z: f64, style: Option<ANSIStyle>) -> Result<(), &'static str> {
             // Ignore pixel if something above it already exists in z buffer
             for v in self.z_buffer.iter() {
-                if v.0.x() == pos.x() && v.0.y() == pos.y() && v.1 < z {
-                    return;
+                if v.0.0 == x && v.0.1 == y && v.1 < z {
+                    return Ok(());
                 }
             }
 
             // WARN
             // This if statement does not appear to have significant performance improvement
             //if self.helper.current_pos.x() != pos.x() || self.helper.current_pos.y() != pos.y() {
-            self.helper.go_to(pos.x(), pos.y());
+            self.helper.go_to(x, y);
             //}
             if let Some(st) = style {
                 self.helper.set_style(st);
             }
-            self.helper.write(s);
-            self.currently_set_pixels.push((pos.x(), pos.y()));
+            self.helper.write(s)?;
+            self.currently_set_pixels.push((x, y));
 
-            self.z_buffer.push((pos, z));
+            self.z_buffer.push(((x, y), z));
+
+            Ok(())
         }
 
         pub fn set_style(&mut self, style: ANSIStyle) {
             self.helper.set_style(style);
         }
 
-        pub fn clear_at(&mut self, pos: Vector2i) {
-            self.helper.go_to(pos.x(), pos.y());
-            self.helper.write(" ");
+        pub fn clear_at(&mut self, x: u32, y: u32) {
+            self.helper.go_to(x, y);
+            _ = self.helper.write(" "); // Error doesn't matter. We are clearing the pixel.
         }
 
         pub fn flush(&mut self) -> Result<(), Box<dyn Error>> {
@@ -570,7 +594,7 @@ pub mod ansi {
                     }
                 }
                 if !found {
-                    self.clear_at(Vector2i::new(previous.0, previous.1));
+                    self.clear_at(previous.0, previous.1);
                 }
             }
             // Flush
@@ -582,11 +606,11 @@ pub mod ansi {
             Ok(())
         }
 
-        pub fn go_to_immediate(&mut self, x: i32, y: i32) {
+        pub fn go_to_immediate(&mut self, x: u32, y: u32) {
             self.helper.go_to_immediate(x, y);
         }
 
-        pub fn go_to(&mut self, x: i32, y: i32) {
+        pub fn go_to(&mut self, x: u32, y: u32) {
             self.helper.go_to(x, y);
         }
 
@@ -602,25 +626,27 @@ pub mod ansi {
 
         }
 
-        pub fn draw_image_2d(&mut self, image: &ImageData, position: Vector2i, z: f64) {
+        pub fn draw_image_2d(&mut self, image: &ImageData, position: Vector2i, z: f64) -> Result<(), &'static str> {
             for y in 0..image.height() {
                 for x in 0..image.width() {
                     let pixel = image.get_pixel_at(x, y);
 
                     if pixel.r() != 0 {
-                        self.draw_at(position + Vector2i::new(x as i32, y as i32), "&", z, None);
+                        let new_pos = position + Vector2i::new(x as i32, y as i32);
+                        self.draw_at(new_pos.x() as u32, new_pos.y() as u32, "&", z, None)?;
                     }
                 }
             }
+
+            Ok(())
         }
 
-        pub fn rasterize_vertices(&mut self, mesh: &Mesh, max_distance: f64) {
+        pub fn rasterize_vertices(&mut self, mesh: &Mesh, max_distance: f64) -> Result<(), &'static str> {
             let verts = mesh.get_transformed_verts();
 
             for x in 0..self.helper.width {
                 for y in 0..self.helper.height {
                     for vert in verts.iter() {
-                        let pixel_pos = Vector2i::new(x, y);
                         let pixel_pos_3d = Vector3::new(f64::from(x), f64::from(y), 0.0);
                         let orthographic_projection_vector = Vector3::new(vert.x(), vert.y(), 0.0);
                         if (orthographic_projection_vector - pixel_pos_3d).magnitude() <= max_distance {
@@ -639,77 +665,127 @@ pub mod ansi {
                                 c = "W";
                             }
 
-                            self.draw_at(pixel_pos, c, vert.z(), None);
+                            self.draw_at(x, y, c, vert.z(), None)?;
                         }
                     }
                 }
             }
+
+            Ok(())
         }
     }
 
     pub struct ANSIHelper {
-        current_pos: Vector2i,
+        x: u32,
+        y: u32,
 
-        width: i32,
-        height: i32,
+        width: u32,
+        height: u32,
 
-        buffer: String,
+        screen: Screen<char>,
+        aux_buffer: HashMap<(u32, u32), String>
     }
 
     impl ANSIHelper {
         pub fn new() -> Self {
+            let w = 120;
+            let h = 50;
+
             ANSIHelper {
-                current_pos: Vector2i::new(1, 1),
-                width: 120,
-                height: 50,
+                x: 0,
+                y: 0,
 
-                buffer: String::new()
+                width: w,
+                height: h,
+
+                screen: Screen::new(w, h),
+                aux_buffer: HashMap::new(),
             }
         }
 
-        pub fn write(&mut self, text: &str) {
-            self.buffer.push_str(text);
-            let cur_pos_x_ref = self.current_pos.mut_x();
-            *cur_pos_x_ref += text.len() as i32;
-            if *cur_pos_x_ref >  self.width {
-                *cur_pos_x_ref -= self.width;
-                *self.current_pos.mut_y() += 1;
+        pub fn write(&mut self, text: &str) -> Result<(), &'static str> {
+            self.screen.push_pixels(self.x, self.y, Vec::from_iter(text.chars()))?;
+            self.advance(text.len() as u32);
+            
+            Ok(())
+        }
+
+        fn advance(&mut self, length: u32) {
+            self.x += length;
+            while self.x > self.width {
+                self.x -= self.width;
+                self.y += 1;
             }
         }
 
-        pub fn write_no_advance(&mut self, text: &str) {
-            self.buffer.push_str(text);
+        pub fn write_aux(&mut self, x: u32, y: u32, text: &str) {
+            if self.aux_buffer.contains_key(&(x, y)) {
+                let s =  self.aux_buffer.get_mut(&(x, y)).expect("This key already been established to exist");
+                s.push_str(text);
+                return;
+            }
+            self.aux_buffer.insert((x, y), String::from(text));
         }
 
         pub fn flush(&mut self) -> Result<(), FromUtf8Error> {
             self.go_to_immediate(0, 0);
-            print!("{}", &self.buffer);
-            self.buffer = String::new();
+            //print!("{}", self.screen.get_buffer().as_slice()); // Maybe there's a way to make it work?
+            self.x = 0;
+            self.y = 0;
+
+            let mut goto = false;
+
+            for c in self.screen.get_buffer() {
+                if let Some(aux) = self.aux_buffer.get(&(self.x, self.y)) {
+                    print!("{aux}");
+                }
+                if *c == '\0' {
+                    goto = true;
+                }
+                else {
+                    if goto {
+                        print!("\u{001B}[{};{}H", self.y, self.x);
+                        goto = false;
+                    }
+                    print!("{}", c);
+                }
+                
+                // Rust borrow checker moment. Can't use self functions
+                self.x += 1;
+                while self.x > self.width {
+                    self.x -= self.width;
+                    self.y += 1;
+
+                    print!("\u{001B}[{};{}H", self.y, self.x);
+                }
+            }
+            self.screen.clear();
             Ok(())
         }
 
-        pub fn go_to(&mut self, x: i32, y: i32) {
-            self.csi_start();
-            self.write_no_advance(&format!("{y};{x}H"));
-            self.current_pos = Vector2i::new(x, y);
+        pub fn go_to(&mut self, x: u32, y: u32) {
+            self.x = x;
+            self.y = y;
         }
 
-        pub fn go_to_immediate(&mut self, x: i32, y: i32) {
+        pub fn go_to_immediate(&mut self, x: u32, y: u32) {
+            self.x = x;
+            self.y = y;
             self.csi_start_immediate();
             print!("{y};{x}H");
         }
         
         pub fn set_style(&mut self, style: ANSIStyle) {
             self.csi_start();
-            self.write_no_advance(&((style as i32).to_string() + "m"));
+            self.write_aux(self.x, self.y, &((style as i32).to_string() + "m"));
         }
 
         pub fn carriage_return(&mut self) {
-            self.write_no_advance("\u{000D}");
+            self.write_aux(self.x, self.y,"\u{000D}");
         }
 
         pub fn beep(&mut self) {
-            self.write_no_advance("\u{0007}");
+            self.write_aux(self.x, self.y, "\u{0007}");
         }
 
         pub fn full_clear(&mut self) {
@@ -724,7 +800,7 @@ pub mod ansi {
 
         pub fn csi_start(&mut self) {
             self.escape_start();
-            self.buffer.push_str("[");
+            self.write_aux(self.x, self.y, "["); // TODO: potentially improve error handling
         }
         
         pub fn escape_start_immediate(&mut self) {
@@ -732,7 +808,7 @@ pub mod ansi {
         }
 
         pub fn escape_start(&mut self) {
-            self.buffer.push_str("\u{001B}");
+            self.write_aux(self.x, self.y, "\u{001B}"); // TODO: potentially improve error handling
         }
     }
 
