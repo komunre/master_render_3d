@@ -517,6 +517,52 @@ pub mod render {
 
 }
 
+// TODO: Try to make renderers use single Renderer trait for ease of use as interchangable renderers.
+// TODO: Reduce code repitition between renderers.
+
+pub mod pixel {
+    use crate::{render::Screen, render_math::vector::*};
+    use image_helper::image::{ImageData, PixelData};
+
+    pub struct PixelRenderer {
+        screen: Screen<PixelData>,
+
+        z_buffer: Vec<((u32, u32), f64)>,
+    }
+
+    impl PixelRenderer {
+        pub fn new(w: u32, h: u32) -> Self {
+            PixelRenderer {
+                screen: Screen::<PixelData>::new(w, h),
+
+                z_buffer: Vec::new(),
+            }
+        }
+
+        pub fn draw_at(&mut self, x: u32, y: u32, pixel: PixelData, z: f64) -> Result<(), &'static str> {
+            // Ignore pixel if something above it already exists in z buffer
+            for v in self.z_buffer.iter() {
+                if v.0.0 == x && v.0.1 == y && v.1 < z {
+                    return Ok(());
+                }
+            }
+
+            self.screen.set_pixel(x, y, pixel)?;
+
+            self.z_buffer.push(((x, y), z));
+
+            Ok(())
+        }
+
+        pub fn flush(&mut self) {
+
+            // Cleanup
+            self.screen.clear();
+            self.z_buffer.clear();
+        }
+    }
+}
+
 pub mod ansi {
     use std::{collections::HashMap, error::Error, string::FromUtf8Error};
 
