@@ -647,7 +647,7 @@ pub mod ansi {
             self.helper.flush()?;
             self.helper.go_to_immediate(0, 0);
             self.previously_set_pixels = std::mem::take(&mut self.currently_set_pixels);
-            self.z_buffer = Vec::new();
+            self.z_buffer.clear();
 
             Ok(())
         }
