@@ -272,55 +272,57 @@ pub mod render_math {
                 (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
             }
         }
+    }
 
-        pub struct Mesh {
-            verts: Vec<Vector3>,
-    
-            translation_matrix: Mat4,
-            scale_matrix: Mat4,
-            rotation_matrix: Mat4,
+    use crate::render_math::{matrix::Mat4, vector::{Vector3, Vector4}};
+
+    pub struct Mesh {
+        verts: Vec<Vector3>,
+
+        translation_matrix: Mat4,
+        scale_matrix: Mat4,
+        rotation_matrix: Mat4,
+    }
+
+    impl Mesh {
+        pub fn new() -> Self {
+            Mesh {
+                verts: Vec::new(),
+
+                translation_matrix: Mat4::identity(),
+                scale_matrix: Mat4::identity(),
+                rotation_matrix: Mat4::identity() 
+            }
         }
-    
-        impl Mesh {
-            pub fn new() -> Self {
-                Mesh {
-                    verts: Vec::new(),
-    
-                    translation_matrix: Mat4::identity(),
-                    scale_matrix: Mat4::identity(),
-                    rotation_matrix: Mat4::identity() 
-                }
+
+        pub fn set_translation_matrix(&mut self, mat: Mat4) {
+            self.translation_matrix = mat;
+        }
+
+        pub fn set_rotation_matrix(&mut self, mat: Mat4) {
+            self.rotation_matrix = mat;
+        }
+
+        pub fn set_scale_matrix(&mut self, mat: Mat4) {
+            self.scale_matrix = mat;
+        }
+        
+        pub fn add_vertex(&mut self, point: Vector3) {
+            self.verts.push(point);
+        }
+
+        pub fn get_transformed_verts(&self) -> Vec<Vector3> {
+            let mut v = Vec::new();
+
+            for vertice in self.verts.iter() {
+                v.push(
+                    Vector3::from(
+                        &(Vector4::from(vertice) * &self.scale_matrix * &self.rotation_matrix * &self.translation_matrix)
+                    )
+                );
             }
 
-            pub fn set_translation_matrix(&mut self, mat: Mat4) {
-                self.translation_matrix = mat;
-            }
-
-            pub fn set_rotation_matrix(&mut self, mat: Mat4) {
-                self.rotation_matrix = mat;
-            }
-
-            pub fn set_scale_matrix(&mut self, mat: Mat4) {
-                self.scale_matrix = mat;
-            }
-            
-            pub fn add_vertex(&mut self, point: Vector3) {
-                self.verts.push(point);
-            }
-    
-            pub fn get_transformed_verts(&self) -> Vec<Vector3> {
-                let mut v = Vec::new();
-    
-                for vertice in self.verts.iter() {
-                    v.push(
-                        Vector3::from(
-                            &(Vector4::from(vertice) * &self.scale_matrix * &self.rotation_matrix * &self.translation_matrix)
-                        )
-                    );
-                }
-    
-                v
-            }
+            v
         }
     }
 
@@ -521,6 +523,7 @@ pub mod ansi {
     use std::{collections::HashMap, error::Error, string::FromUtf8Error};
 
     use crate::{render::Screen, render_math::vector::*};
+    use crate::render_math::Mesh;
     use image_helper::image::*;
 
     pub struct ANSIRenderer {
