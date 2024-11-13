@@ -554,6 +554,10 @@ pub mod pixel {
             Ok(())
         }
 
+        pub fn get_screen_buffer(&self) -> &Vec<PixelData> {
+            self.screen.get_buffer()
+        }
+
         pub fn flush(&mut self) {
 
             // Cleanup
