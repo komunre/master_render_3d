@@ -1,4 +1,4 @@
-use master_render_3d::{ansi::{ANSIRenderer, ANSIStyle}, pixel::PixelRenderer, render_math::{matrix::Mat4, vector::{Mesh, Vector2i, Vector3}}};
+use master_render_3d::{ansi::{ANSIRenderer, ANSIStyle}, pixel::PixelRenderer, render_math::{matrix::Mat4, Mesh, vector::{Vector2i, Vector3}}};
 
 fn main() {
     let mut renderer = PixelRenderer::new(120, 50);

@@ -531,7 +531,7 @@ pub mod render {
 // TODO: Reduce code repitition between renderers.
 
 pub mod pixel {
-    use crate::{render::Screen, render_math::vector::*};
+    use crate::{render::Screen, render_math::vector::*, render_math::Mesh};
     use image_helper::image::{ImageData, PixelData};
     use std::path::Path;
 
