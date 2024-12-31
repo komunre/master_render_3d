@@ -1,7 +1,7 @@
 use master_render_3d::{ansi::{ANSIRenderer, ANSIStyle}, render_math::{Mesh, matrix::Mat4, vector::{Vector3, Vector2i}}};
 
 fn main() {
-    let mut renderer = ANSIRenderer::new();
+    let mut renderer = ANSIRenderer::new(120, 50);
 
     let mut heart = Mesh::new();
     // Create heart mesh

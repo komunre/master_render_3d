@@ -536,9 +536,9 @@ pub mod ansi {
     }
 
     impl ANSIRenderer {
-        pub fn new() -> Self {
+        pub fn new(w: u32, h: u32) -> Self {
             ANSIRenderer {
-                helper: ANSIHelper::new(),
+                helper: ANSIHelper::new(w, h),
 
                 currently_set_pixels: Vec::new(),
                 previously_set_pixels: Vec::new(),
@@ -690,10 +690,7 @@ pub mod ansi {
     }
 
     impl ANSIHelper {
-        pub fn new() -> Self {
-            let w = 120;
-            let h = 50;
-
+        pub fn new(w: u32, h: u32) -> Self {
             ANSIHelper {
                 x: 0,
                 y: 0,
