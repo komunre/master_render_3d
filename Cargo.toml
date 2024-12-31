@@ -8,3 +8,4 @@ linker = "C:/cygwin64/bin/gcc.exe"
 
 [dependencies]
 image_helper = { path = "image_helper" }
+png = "0.17.14"

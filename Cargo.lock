@@ -60,6 +60,7 @@ name = "master_render_3d"
 version = "0.2.0"
 dependencies = [
  "image_helper",
+ "png",
 ]
 
 [[package]]

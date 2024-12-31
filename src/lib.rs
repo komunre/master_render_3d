@@ -513,6 +513,14 @@ pub mod render {
             &self.pixels
         }
 
+        pub fn width(&self) -> u32 {
+            self.width
+        }
+
+        pub fn height(&self) -> u32 {
+            self.height
+        }
+
     }
 
 }
@@ -523,11 +531,16 @@ pub mod render {
 pub mod pixel {
     use crate::{render::Screen, render_math::vector::*};
     use image_helper::image::{ImageData, PixelData};
+    use std::path::Path;
 
     pub struct PixelRenderer {
         screen: Screen<PixelData>,
 
         z_buffer: Vec<((u32, u32), f64)>,
+        frame_num: u32,
+
+        z_min: f64,
+        z_max: f64,
     }
 
     impl PixelRenderer {
@@ -536,6 +549,10 @@ pub mod pixel {
                 screen: Screen::<PixelData>::new(w, h),
 
                 z_buffer: Vec::new(),
+                
+                frame_num: 0,
+                z_min: 0.0,
+                z_max: 0.0,
             }
         }
 
@@ -551,6 +568,13 @@ pub mod pixel {
 
             self.z_buffer.push(((x, y), z));
 
+            if (self.z_min > z) {
+                self.z_min = z;
+            }
+            if (self.z_max < z) {
+                self.z_max = z;
+            }
+
             Ok(())
         }
 
@@ -559,10 +583,75 @@ pub mod pixel {
         }
 
         pub fn flush(&mut self) {
+            let _ = std::fs::create_dir("outputs/");
+            let file = std::fs::File::create(Path::new(format!("outputs/output{}.png", self.frame_num).as_str())).unwrap();
+            let ref mut w = std::io::BufWriter::new(file);
+
+            let mut encoder = png::Encoder::new(w, self.screen.width(), self.screen.height());
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            
+            let veclen: usize = (self.screen.width() * self.screen.height() * 4).try_into().unwrap();
+            let mut data: Vec<u8> = Vec::with_capacity(veclen);
+            for (i, pixel) in self.screen.get_buffer().iter().enumerate() {
+                /*data[i * 4] = pixel.r() as u8;
+                data[i * 4 + 1] = pixel.g() as u8;
+                data[i * 4 + 2] = pixel.b() as u8;
+                data[i * 4 + 3] = pixel.a() as u8;*/
+
+                data.push(pixel.r() as u8);
+                data.push(pixel.g() as u8);
+                data.push(pixel.b() as u8);
+                data.push(pixel.a() as u8);
+            }
+
+            let mut writer = encoder.write_header().unwrap();
+            writer.write_image_data(&data).unwrap();
+
+            println!("Outputted {} frame", self.frame_num);
 
             // Cleanup
             self.screen.clear();
             self.z_buffer.clear();
+            self.z_min = 0.0;
+            self.z_max = 0.0;
+            self.frame_num += 1;
+        }
+
+        pub fn draw_image_2d(&mut self, image: &ImageData, position: Vector2i, z: f64) -> Result<(), &'static str> {
+            for y in 0..image.height() {
+                for x in 0..image.width() {
+                    let pixel = image.get_pixel_at(x, y);
+
+                    if pixel.r() != 0 {
+                        let new_pos = position + Vector2i::new(x as i32, y as i32);
+                        self.draw_at(new_pos.x() as u32, new_pos.y() as u32, PixelData::new(png::BitDepth::Eight, 255, 255, 0, 255), z)?;
+                    }
+                }
+            }
+
+            Ok(())
+        }
+
+        pub fn rasterize_vertices(&mut self, mesh: &Mesh, max_distance: f64) -> Result<(), &'static str> {
+            let verts = mesh.get_transformed_verts();
+
+            for x in 0..self.screen.width() {
+                for y in 0..self.screen.height() {
+                    for vert in verts.iter() {
+                        let pixel_pos_3d = Vector3::new(f64::from(x), f64::from(y), 0.0);
+                        let orthographic_projection_vector = Vector3::new(vert.x(), vert.y(), 0.0);
+                        if (orthographic_projection_vector - pixel_pos_3d).magnitude() <= max_distance {
+                            let multiplier = 0.0 + ((1.0 - 0.0) / (self.z_min - self.z_max)) * (vert.z() - self.z_max);
+                            let c = PixelData::new(png::BitDepth::Eight, (239.0 * multiplier) as usize, (100.0 * multiplier) as usize, (232.0 * multiplier) as usize, 255);
+
+                            self.draw_at(x, y, c, vert.z())?;
+                        }
+                    }
+                }
+            }
+
+            Ok(())
         }
     }
 }
