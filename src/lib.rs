@@ -642,7 +642,7 @@ pub mod pixel {
                         let pixel_pos_3d = Vector3::new(f64::from(x), f64::from(y), 0.0);
                         let orthographic_projection_vector = Vector3::new(vert.x(), vert.y(), 0.0);
                         if (orthographic_projection_vector - pixel_pos_3d).magnitude() <= max_distance {
-                            let multiplier = 0.0 + ((1.0 - 0.0) / (self.z_min - self.z_max)) * (vert.z() - self.z_max);
+                            let multiplier = (1.0 / (self.z_min - self.z_max)) * (vert.z() - self.z_max);
                             let c = PixelData::new(png::BitDepth::Eight, (239.0 * multiplier) as usize, (100.0 * multiplier) as usize, (232.0 * multiplier) as usize, 255);
 
                             self.draw_at(x, y, c, vert.z())?;
